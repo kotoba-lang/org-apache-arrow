@@ -1,15 +1,19 @@
 # org-apache-arrow
 
-**An Arrow IPC reader in portable `.cljc`**, providing
+**An Arrow IPC reader and writer in portable `.cljc`**, providing
 [`columnar`](https://github.com/kotoba-lang/columnar)'s `IColumnSource`. No
 Rust, no JNI, no native library, no generated FlatBuffers bindings — the
-format is decoded from bytes.
+format is decoded from, and encoded to, bytes.
 
 ```clojure
-(require '[arrow.source :as ar] '[columnar.plan :as plan])
+(require '[arrow.source :as ar] '[arrow.write :as aw] '[columnar.plan :as plan])
 
 (plan/scan (ar/open bytes) {:columns ["price"] :predicates [[:= "price" 120]]})
 ;; => {:rows [{::plan/row 4 "price" 120}] :chunks-read 3 :chunks-skipped 0}
+
+;; …and back out again: a query result becomes an object other systems open
+(aw/of-columns (aw/columns-of-rows [["price" :int64]] rows))
+;; => Arrow IPC file bytes
 ```
 
 Origin plane: the format is Apache's, so the repo is named for where it comes
@@ -102,6 +106,40 @@ A refused *type* still lists in the schema — refusing to name a file's columns
 is a worse failure than refusing to decode one of them — and a refused *layout*
 throws when the source is opened rather than when the bad column is asked for,
 because an unknown buffer count desynchronises every column after it.
+
+## Writing
+
+`arrow.write` takes `columnar.vector` columns — the engine's currency, so a
+`plan/scan` result materialises without transposing through rows — and emits
+IPC file bytes. Each batch becomes one record batch, which is one prunable
+chunk when the result is read back.
+
+```clojure
+(aw/file {:fields  [{:name "price" :type :int64 :nullable? true}]
+          :batches [[(cvec/column :int64 [1 2 3])]
+                    [(cvec/column :int64 [4 5 6])]]})
+```
+
+`arrow.build` is the FlatBuffers **builder** underneath, and it is much the
+harder direction: a table points at its vtable with a negative offset and a
+vector stores its length before its elements, so the buffer is built from the
+end toward the front. The working representation is therefore a reversed
+accumulator where "offset" means distance from the end.
+
+### Our own tests cannot prove the output is valid Arrow
+
+This matters enough to state plainly. `arrow.writer-test` shares a code base
+with the reader, so the failures that matter most — a wrong vtable, a body
+length that forgot its padding, a buffer that is not 8-byte aligned — would
+round-trip through it **cleanly**, because both halves would share the
+misunderstanding.
+
+So CI writes files with `arrow.emit-for-python` and hands them to pyarrow's
+`validate(full=True)`, which walks offsets and buffer bounds rather than
+trusting the metadata. Six cases: multi-column with every supported type,
+multi-batch, all-null, no-nulls (the zero-length validity buffer), an empty
+batch, and unicode. That step is the writer's real correctness gate; the
+in-repo suite covers values, nulls, chunking and materialisation.
 
 ## Reads are ranges
 

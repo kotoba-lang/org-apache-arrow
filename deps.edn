@@ -26,6 +26,14 @@
   ;; only the cljs run can check.
   :cljs {:extra-paths ["test"]
          :extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}}
+  ;; Writes the files `test/fixtures/verify_written.py` hands to pyarrow. A
+  ;; separate entrypoint because the claim it supports -- that a file we wrote
+  ;; is a file a REAL Arrow implementation accepts -- cannot be checked from
+  ;; inside this repo: a self-round-trip only proves the writer and the reader
+  ;; share an opinion, and the failures that matter most are exactly the ones
+  ;; both halves would share.
+  :emit {:extra-paths ["test"]
+         :main-opts ["-m" "arrow.emit-for-python"]}
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
                      "--fail-level" "error"]}}}
