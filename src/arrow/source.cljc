@@ -91,11 +91,15 @@
           (let [base (buffer-base counts k)
                 mine (subvec buffers base (+ base (nth counts k)))
                 fetched (mapv (fn [{:keys [offset length]}]
-                                (if (zero? length)
-                                  []
-                                  (vec (bytes/-read-range
-                                        src (+ body-at offset)
-                                        (+ body-at offset length)))))
+                                (->> (if (zero? length)
+                                       []
+                                       (vec (bytes/-read-range
+                                             src (+ body-at offset)
+                                             (+ body-at offset length))))
+                                     ;; Per BUFFER, not per body -- each carries
+                                     ;; its own length prefix, and a -1 means
+                                     ;; this one was stored raw.
+                                     (decode/decompress-buffer compression)))
                               mine)]
             (decode/column f rows fetched)))))))
 

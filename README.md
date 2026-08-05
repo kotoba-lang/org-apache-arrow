@@ -77,11 +77,21 @@ The single most useful property, and the same one `org-apache-parquet` holds
 for statistics. Body compression is a property of the **buffers**; batch
 lengths and null counts live in the **metadata**, which is never compressed.
 
-So a zstd-compressed file still answers `count`, still answers
+So an lz4-compressed file still answers `count`, still answers
 `count-non-null`, and still prunes all-null chunks, reading nothing but
 message headers — while `-read-column` refuses it and **names the codec**.
-`compressed.arrow` is the fixture that holds that line, and there is a test
-asserting both halves.
+
+`lz4.arrow` is the fixture that holds that line. It replaced `compressed.arrow`
+(zstd) when zstd became decodable, for the reason `org-apache-parquet` keeps
+`delta.parquet`: when a codec lands, the file that had been proving "metadata
+is readable from what we cannot decode" quietly stops proving it, and the
+property needs a witness the reader still cannot undo.
+
+**ZSTD body compression decodes**, through the same `org-ietf-zstd` the Parquet
+reader uses. Arrow compresses per *buffer* rather than per body, each with an
+int64 length prefix — and a prefix of `-1` means that buffer was stored raw
+because compressing would have made it bigger, which is the normal path for
+small validity and offsets buffers.
 
 ## What it decodes, and what it refuses by name
 
@@ -95,7 +105,7 @@ decoded
   the pre-0.15 envelope (no continuation marker) as well as the current one
 
 refused, by name
-  body compression:  lz4_frame / zstd
+  body compression:  lz4_frame  (zstd decodes, through org-ietf-zstd)
   dictionary-encoded fields
   nested:  list / large_list / struct / map / union / fixed_size_list
            run-end-encoded, and the view types

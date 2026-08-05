@@ -18,6 +18,24 @@
       "region" ["east" "east" "west" "west" "east" "east" "east" "west" "west"]
     }
   }
+  "lz4.arrow" {
+    "batches" 3
+    "columns" ["price" "region" "note" "big"]
+    "nulls" {
+      "big" 0
+      "note" 7
+      "price" 0
+      "region" 0
+    }
+    "rows" [3 3 3]
+    "types" ["int64" "string" "string" "int64"]
+    "values" {
+      "big" [4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905 4611686018427387905]
+      "note" [nil "clearance" nil nil nil "sale" nil nil nil]
+      "price" [10 20 30 110 120 130 210 220 230]
+      "region" ["east" "east" "west" "west" "east" "east" "east" "west" "west"]
+    }
+  }
   "plain.arrow" {
     "batches" 3
     "columns" ["price" "region" "note" "big"]

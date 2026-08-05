@@ -5,7 +5,14 @@
  ;; portable .cljc, so the transitive cost is nil.
  :deps {io.github.kotoba-lang/columnar
         {:git/url "https://github.com/kotoba-lang/columnar.git"
-         :git/sha "16b336b1040098d15b55cf63ae7bf8efca6aedda"}}
+         :git/sha "16b336b1040098d15b55cf63ae7bf8efca6aedda"}
+        ;; ZSTD body compression. Same zero-dep portable .cljc decoder
+        ;; org-apache-parquet uses, for the same reason: a native binding
+        ;; exists on exactly one of the runtimes this reader must keep
+        ;; running on.
+        io.github.kotoba-lang/org-ietf-zstd
+        {:git/url "https://github.com/kotoba-lang/org-ietf-zstd.git"
+         :git/sha "5362525f26e1dd7646cf917e9b485df2028c3967"}}
  :aliases
  ;; kotobase-lake is a TEST dependency only. This repo provides a column source
  ;; and must not know about catalogs, tenants or triple patterns — but the

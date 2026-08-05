@@ -39,6 +39,7 @@
 (def plain (delay (read-fixture "plain.arrow")))
 (def types (delay (read-fixture "types.arrow")))
 (def compressed (delay (read-fixture "compressed.arrow")))
+(def lz4ed (delay (read-fixture "lz4.arrow")))
 (def truth (delay (edn/read-string (read-text "ground-truth.edn"))))
 
 (defn- expected [file k] (get-in @truth [file k]))
@@ -195,12 +196,28 @@
 
 ;; ── refusals name what they refuse ──────────────────────────────────────────
 
+(deftest zstd-buffers-decode-and-agree-with-the-uncompressed-file
+  ;; Arrow compresses per BUFFER, each with its own int64 length prefix, and a
+  ;; prefix of -1 means that buffer was stored raw because compressing would
+  ;; have made it bigger. Small buffers -- a one-byte validity bitmap, a short
+  ;; offsets buffer -- routinely take that path, so a decoder that always
+  ;; decompresses fails on exactly the files that compress well.
+  (let [z (asrc/open @compressed) p (asrc/open @plain)]
+    (doseq [col ["price" "region" "note"] chunk [0 1 2]]
+      (is (= (:values (csrc/-read-column p chunk col))
+             (:values (csrc/-read-column z chunk col)))
+          (str col " chunk " chunk))))
+  (testing "and count still comes out of the metadata, as it did when the
+            buffers were refused"
+    (is (= {:value 9 :from :statistics :read 0}
+           (agg/aggregate (asrc/open @compressed) {:agg :count})))))
+
 (deftest metadata-survives-buffers-this-reader-cannot-decode
   ;; The Arrow analogue of "statistics work on files this reader cannot
   ;; decode". Compression is a property of the buffers; batch lengths and null
   ;; counts live in the metadata and are never compressed.
-  (let [s (asrc/open @compressed)]
-    (is (= (expected "compressed.arrow" "columns") (csrc/-schema s)))
+  (let [s (asrc/open @lz4ed)]
+    (is (= (expected "lz4.arrow" "columns") (csrc/-schema s)))
     (is (= {:value 9 :from :statistics :read 0} (agg/aggregate s {:agg :count})))
     (is (= {:value 2 :from :statistics :read 0}
            (agg/aggregate s {:agg :count-non-null :column "note"})))
@@ -208,10 +225,13 @@
       (let [e (try (csrc/-read-column s 0 "price") nil
                    (catch #?(:clj Exception :cljs :default) e (ex-data e)))]
         (is (= :arrow/unsupported-compression (:type e)))
-        (is (= :zstd (:compression e)))))))
+        (is (= :lz4-frame (:compression e)))
+        (is (= [:zstd] (:decodable e))
+            "the refusal names what IS decodable, so it stays accurate as
+             codecs land")))))
 
 (deftest a-refusal-costs-no-download
-  (let [{:keys [source log]} (bytes/counting (bytes/of-vector @compressed))
+  (let [{:keys [source log]} (bytes/counting (bytes/of-vector @lz4ed))
         s (asrc/open source)
         ;; Warm the batch metadata first. Naming the codec REQUIRES reading it
         ;; -- that is where the compression is declared -- so the claim is
