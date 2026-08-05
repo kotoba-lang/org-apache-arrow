@@ -5,7 +5,7 @@
  ;; portable .cljc, so the transitive cost is nil.
  :deps {io.github.kotoba-lang/columnar
         {:git/url "https://github.com/kotoba-lang/columnar.git"
-         :git/sha "d89813a3db2e59376c6732a9cbbfbb8c0687544c"}}
+         :git/sha "16b336b1040098d15b55cf63ae7bf8efca6aedda"}}
  :aliases
  ;; kotobase-lake is a TEST dependency only. This repo provides a column source
  ;; and must not know about catalogs, tenants or triple patterns — but the
