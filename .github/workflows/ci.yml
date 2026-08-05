@@ -45,3 +45,15 @@ jobs:
           python3 -m venv /tmp/ar && /tmp/ar/bin/pip install --quiet pyarrow
           /tmp/ar/bin/python test/fixtures/generate.py
           git diff --exit-code -- test/fixtures ':!test/fixtures/compressed.arrow'
+
+      # The claim the in-repo suite CANNOT make. `arrow.writer-test` shares a
+      # code base with the reader, so a wrong vtable, a body length that
+      # forgot its padding, or a buffer that is not 8-byte aligned all
+      # round-trip through it cleanly. Handing the bytes to the reference
+      # implementation is the only way to find out, and `validate(full=True)`
+      # walks offsets and buffer bounds instead of trusting the metadata.
+      - name: files we WROTE are accepted by the reference reader
+        run: |
+          mkdir -p /tmp/arrow-out
+          clojure -M:emit /tmp/arrow-out
+          /tmp/ar/bin/python test/fixtures/verify_written.py /tmp/arrow-out
