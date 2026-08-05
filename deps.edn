@@ -1,0 +1,31 @@
+{:paths ["src"]
+ ;; columnar and nothing else. It carries both halves of the seam this library
+ ;; plugs into -- `IColumnSource` (what the engine asks a format for) and
+ ;; `IByteSource` (what a format asks the world for) -- and is itself zero-dep
+ ;; portable .cljc, so the transitive cost is nil.
+ :deps {io.github.kotoba-lang/columnar
+        {:git/url "https://github.com/kotoba-lang/columnar.git"
+         :git/sha "d89813a3db2e59376c6732a9cbbfbb8c0687544c"}}
+ :aliases
+ ;; kotobase-lake is a TEST dependency only. This repo provides a column source
+ ;; and must not know about catalogs, tenants or triple patterns — but the
+ ;; claim this repo exists to check is that the lake's scan seam takes a
+ ;; SECOND format without changing, and only an end-to-end test against a real
+ ;; file can say so.
+ {:test {:extra-paths ["test"]
+         :extra-deps {io.github.cognitect-labs/test-runner
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                      io.github.kotoba-lang/kotobase-lake
+                      {:git/url "https://github.com/kotoba-lang/kotobase-lake.git"
+                       :git/sha "06d658a08a898d6e7efced696ebd7b74a7a9be0d"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}
+  ;; The same portable suite under real ClojureScript. Not a duplicate of the
+  ;; JVM run: `arrow.flatbuffers/i64` has a reader conditional per platform,
+  ;; and refusing a value past 2^53 rather than rounding it is a claim that
+  ;; only the cljs run can check.
+  :cljs {:extra-paths ["test"]
+         :extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}}
+  :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
+         :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
+                     "--fail-level" "error"]}}}

@@ -1,0 +1,47 @@
+name: test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: DeLaGuardo/setup-clojure@13.0
+        with: { cli: latest }
+
+      - name: JVM
+        run: clojure -M:test
+
+      - run: npm install -g nbb
+      # Not a duplicate. `arrow.flatbuffers/i64` refuses a magnitude it cannot
+      # represent rather than rounding it, and that claim is only checkable on
+      # a runtime whose numbers are doubles.
+      - name: ClojureScript (nbb, interpreted)
+        run: nbb --classpath "src:test:$(clojure -Spath)" test/run.cljs
+      - name: ClojureScript (cljs.main, compiled)
+        run: clojure -M:cljs -m cljs.main --target node -m arrow.cljs-runner
+
+      - name: lint
+        run: clojure -M:lint
+
+      # The fixtures must stay byte-identical to what the reference writer
+      # produces, or the suite is testing this repo against its own past
+      # misunderstanding rather than against Arrow.
+      #
+      # compressed.arrow is excluded for the reason org-apache-parquet excludes
+      # gzip.parquet: its bytes are a compressor's output, and zstd's framing
+      # and level defaults are implementation-dependent rather than specified,
+      # so "the reference writer produces exactly these bytes" is not a claim
+      # it supports across pyarrow builds. What IS checkable is that its
+      # METADATA still decodes and still answers count/count-non-null while
+      # -read-column refuses it, and that is asserted in the suite above --
+      # which is the whole property that fixture exists to witness.
+      - name: fixtures still match the reference writer
+        run: |
+          python3 -m venv /tmp/ar && /tmp/ar/bin/pip install --quiet pyarrow
+          /tmp/ar/bin/python test/fixtures/generate.py
+          git diff --exit-code -- test/fixtures ':!test/fixtures/compressed.arrow'
