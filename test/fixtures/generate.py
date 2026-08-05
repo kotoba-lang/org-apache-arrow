@@ -49,6 +49,17 @@ write_ipc(here / "plain.arrow", table)
 write_ipc(here / "compressed.arrow", table,
           options=pa.ipc.IpcWriteOptions(compression="zstd"))
 
+# lz4.arrow -- the witness that replaced compressed.arrow when ZSTD became
+# decodable. The property needs a fixture whose buffers this reader CANNOT
+# undo, and org-apache-parquet keeps delta.parquet for exactly the same
+# reason: when snappy landed, the file that had been proving "statistics are
+# readable from what we cannot decode" stopped proving it.
+#
+# LZ4_FRAME, because there is no portable .cljc LZ4 decoder in this workspace
+# and therefore no risk of this fixture quietly becoming readable too.
+write_ipc(here / "lz4.arrow", table,
+          options=pa.ipc.IpcWriteOptions(compression="lz4"))
+
 # types.arrow -- one batch, the physical layouts a flat reader has to tell
 # apart: a bit-packed boolean, a float64, a null-free string, and a column
 # that is entirely null (which is the ONE thing Arrow metadata can prune on,
@@ -108,7 +119,7 @@ def edn(x, indent=0):
 
 truth = {}
 for name, tbl in [("plain.arrow", table), ("types.arrow", types),
-                  ("compressed.arrow", table)]:
+                  ("compressed.arrow", table), ("lz4.arrow", table)]:
     with pa.ipc.open_file(here / name) as r:
         truth[name] = {
             "columns": [f.name for f in r.schema],

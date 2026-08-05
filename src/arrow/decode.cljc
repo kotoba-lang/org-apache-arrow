@@ -23,7 +23,46 @@
   the metadata, so a file this namespace refuses still answers `count`,
   `count-non-null` and all-null pruning out of `arrow.ipc/batch-header`."
   (:require [arrow.flatbuffers :as fb]
-            [columnar.vector :as cvec]))
+            [columnar.vector :as cvec]
+            [zstd.core :as zstd]))
+
+(def decodable-compression
+  "Body compressions this namespace can undo.
+
+  LZ4_FRAME stays refused: there is no portable .cljc LZ4 decoder in this
+  workspace, and the refusal is by name so a caller learns which codec it
+  met rather than that something unspecified went wrong."
+  #{:zstd})
+
+(defn decompress-buffer
+  "One body buffer, undone if the batch declared a compression.
+
+  Arrow compresses **per buffer**, not per body, and prefixes each with an
+  int64 little-endian uncompressed length. Two cases that are easy to miss and
+  silent when missed:
+
+  - **A length of -1 means the buffer is stored RAW.** Writers emit this when
+    compressing would have made the buffer bigger, so it is the normal state
+    for small buffers -- a validity bitmap of one byte, an offsets buffer of a
+    handful of entries -- and a decoder that always decompresses fails on
+    exactly the files that compress well.
+  - **A zero-length buffer carries no prefix at all** and stays empty. Reading
+    8 bytes of length from it would consume the next buffer's bytes."
+  [compression bs]
+  (if (or (nil? compression) (zero? (count bs)))
+    bs
+    (let [declared (fb/i64 bs 0)
+          body (subvec (vec bs) 8)]
+      (cond
+        (neg? declared) body
+        (zero? declared) []
+        :else
+        (let [out (vec (zstd/decompress body))]
+          (when-not (= (long declared) (count out))
+            (throw (ex-info "decompressed buffer is not the declared length"
+                            {:type :arrow/codec-length-mismatch
+                             :declared declared :actual (count out)})))
+          out)))))
 
 (defn valid-mask
   "`n` validity flags from a bitmap buffer.
@@ -76,12 +115,13 @@
   Called before a byte of the body is fetched: a refusal must not cost a
   download."
   [{:keys [name logical dictionary?]} compression]
-  (when compression
+  (when (and compression (not (contains? decodable-compression compression)))
     (throw (ex-info (str "arrow: body compression " (pr-str compression)
                          " is not implemented"
                          " — batch metadata is still readable from this file")
                     {:type :arrow/unsupported-compression
-                     :compression compression :column name})))
+                     :compression compression :column name
+                     :decodable (vec decodable-compression)})))
   (when dictionary?
     (throw (ex-info (str "arrow: column " (pr-str name)
                          " is dictionary-encoded; its buffers hold indices"
