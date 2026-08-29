@@ -18,7 +18,8 @@
             [columnar.plan :as plan]
             [columnar.source :as csrc]
             [columnar.vector :as cvec]
-            #?(:clj [clojure.java.io :as io])))
+            #?(:clj [clojure.java.io :as io]))
+  #?(:clj (:import [java.nio ByteBuffer])))
 
 (defn read-fixture [name]
   #?(:clj (with-open [in (io/input-stream (io/file "test/fixtures" name))]
@@ -91,6 +92,36 @@
     (when exact-int64?
       (testing "a value past 2^53 survives exactly"
         (is (= (get (expected "plain.arrow" "values") "big") (whole-column s "big")))))))
+
+(deftest projected-column-buffers-retain-native-backing
+  (let [backing #?(:clj (let [b (ByteBuffer/allocateDirect (count @plain))]
+                          (.put b (byte-array (map unchecked-byte @plain)))
+                          (.flip b))
+                   :cljs (js/Uint8Array. (clj->js @plain)))
+        s (asrc/open backing)
+        {:keys [rows copy-boundary buffers]}
+        (asrc/column-buffer-views s 0 "price")]
+    (is (= 3 rows))
+    (is (= :borrowed-source copy-boundary))
+    (is (= [:validity :values] (mapv :role buffers)))
+    (is (every? #(satisfies? bytes/IByteView (:view %)) buffers))
+    (is (= (mapv :length buffers)
+           (mapv #(bytes/view-size (:view %)) buffers)))
+    (let [native (bytes/native-view (:view (second buffers)))]
+      #?(:clj (do (is (.isDirect ^ByteBuffer native))
+                  (is (.isReadOnly ^ByteBuffer native)))
+         :cljs (is (instance? js/Uint8Array native))))))
+
+(deftest compressed-buffer-view-refuses-before-body-fetch
+  (let [{:keys [source log]} (bytes/counting (bytes/of-vector @compressed))
+        s (asrc/open source)
+        _ (csrc/-chunk-rows s 0)
+        before (:bytes @log)
+        e (try (asrc/column-buffer-views s 0 "price") nil
+               (catch #?(:clj Exception :cljs :default) e (ex-data e)))]
+    (is (= :arrow/buffer-view-requires-decompression (:type e)))
+    (is (= :decompression (:copy-boundary e)))
+    (is (= before (:bytes @log)))))
 
 (deftest a-value-past-2-to-the-53-is-refused-rather-than-rounded
   ;; The claim `arrow.flatbuffers/i64` makes: exact or nothing, never a

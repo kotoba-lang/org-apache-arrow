@@ -54,6 +54,30 @@
   [counts k]
   (reduce + 0 (take k counts)))
 
+(defprotocol IArrowBufferSource
+  (-column-buffer-views [source chunk column]
+    "Borrow one uncompressed Arrow column's physical buffers.
+
+    The returned `columnar.bytes/IByteView` values retain host backing storage;
+    they do not decode or materialise row values. Compressed buffers fail
+    closed because decompression necessarily owns a new buffer and therefore
+    is not this API's zero-copy path."))
+
+(defn column-buffer-views
+  "Borrow the validity/value or validity/offset/data buffers for one column.
+
+  This is the CPU zero-copy seam and the GPU one-upload seam. It does not claim
+  that network ingress or GPU device upload allocates nothing; it guarantees
+  that Arrow projection adds no intermediate row/value copy."
+  [source chunk column]
+  (-column-buffer-views source chunk column))
+
+(defn- buffer-roles [{:keys [type]}]
+  (case type
+    :null []
+    (:utf8 :large-utf8 :binary :large-binary) [:validity :offsets :data]
+    [:validity :values]))
+
 (defn open
   "A `columnar/IColumnSource` over `src` — a `columnar.bytes/IByteSource`, or a
   vector for a file already in memory.
@@ -101,7 +125,34 @@
                                      ;; this one was stored raw.
                                      (decode/decompress-buffer compression)))
                               mine)]
-            (decode/column f rows fetched)))))))
+            (decode/column f rows fetched))))
+      IArrowBufferSource
+      (-column-buffer-views [_ chunk column]
+        (let [k (column-index fields column)
+              f (nth fields k)
+              {:keys [rows buffers compression body-at]} (header chunk)]
+          (decode/check-readable! f compression)
+          (when compression
+            (throw (ex-info "compressed Arrow buffers cannot be borrowed"
+                            {:type :arrow/buffer-view-requires-decompression
+                             :compression compression :column column
+                             :copy-boundary :decompression})))
+          (let [base (buffer-base counts k)
+                mine (subvec buffers base (+ base (nth counts k)))
+                roles (buffer-roles (:logical f))]
+            {:field f
+             :rows rows
+             :copy-boundary :borrowed-source
+             :buffers
+             (mapv (fn [role {:keys [offset length]}]
+                     (let [start (+ body-at offset)]
+                       {:role role
+                        :file-offset start
+                        :length length
+                        :view (if (zero? length)
+                                (bytes/view [])
+                                (bytes/read-view-range src start (+ start length)))}))
+                   roles mine)}))))))
 
 (defn metadata
   "The parsed footer, for callers that want the schema or the batch blocks

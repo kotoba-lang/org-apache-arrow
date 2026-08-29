@@ -5,7 +5,7 @@
  ;; portable .cljc, so the transitive cost is nil.
  :deps {io.github.kotoba-lang/columnar
         {:git/url "https://github.com/kotoba-lang/columnar.git"
-         :git/sha "16b336b1040098d15b55cf63ae7bf8efca6aedda"}
+         :git/sha "38eb52714e25f16469622bbc2d460324353f07e6"}
         ;; ZSTD body compression. Same zero-dep portable .cljc decoder
         ;; org-apache-parquet uses, for the same reason: a native binding
         ;; exists on exactly one of the runtimes this reader must keep
