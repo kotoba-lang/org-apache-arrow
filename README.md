@@ -162,6 +162,21 @@ lengths — not the batch body. There is a test that asserts it by metering the
 transport, because an assertion on the *answer* cannot tell a projected read
 apart from reading everything and slicing.
 
+### Borrowed buffers: zero CPU materialisation, one GPU upload
+
+`arrow.source/column-buffer-views` exposes an uncompressed projected column's
+validity/value or validity/offset/data buffers as bounded
+`columnar.bytes/IByteView` values. A vector, direct JVM `ByteBuffer`, or
+JavaScript `Uint8Array` keeps the same backing storage while Arrow narrows it;
+row values are not decoded into Clojure collections. A CPU vectorized host can
+consume the native view directly, and a GPU host can perform its required
+device upload without an intermediate Arrow-to-row-to-tensor copy.
+
+The boundary is intentionally precise: network ingress may own a response
+buffer, GPU upload is normally one host-to-device copy, and compressed Arrow
+buffers require a decompression allocation. The borrowed-buffer API rejects
+compressed batches rather than calling that path zero-copy.
+
 ## Portability, and 64-bit integers
 
 Portable `.cljc`: the JVM and ClojureScript, with the Worker (cljs) being the
