@@ -12,7 +12,14 @@
         ;; running on.
         io.github.kotoba-lang/org-ietf-zstd
         {:git/url "https://github.com/kotoba-lang/org-ietf-zstd.git"
-         :git/sha "5362525f26e1dd7646cf917e9b485df2028c3967"}}
+         :git/sha "5362525f26e1dd7646cf917e9b485df2028c3967"}
+        ;; `arrow.ipld` reads an Arrow file stored as an IPLD byte DAG. Both
+        ;; sides already speak `[start, end)`, so this is an adapter rather
+        ;; than a second reader -- FBL fetches only the leaves a range
+        ;; overlaps, and refuses a short read rather than returning one.
+        io.github.kotoba-lang/io-ipld
+        {:git/url "https://github.com/kotoba-lang/io-ipld.git"
+         :git/sha "e0c9585d344dd12cb4b3461506b65ce8c529efd2"}}
  :aliases
  ;; kotobase-lake is a TEST dependency only. This repo provides a column source
  ;; and must not know about catalogs, tenants or triple patterns — but the
