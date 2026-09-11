@@ -21,7 +21,7 @@ jobs:
       # represent rather than rounding it, and that claim is only checkable on
       # a runtime whose numbers are doubles.
       - name: ClojureScript (nbb, interpreted)
-        run: nbb --classpath "src:test:$(clojure -Spath)" test/run.cljs
+        run: nbb --classpath "src:test:$(clojure -Spath)" test/run.cljk
       - name: ClojureScript (cljs.main, compiled)
         run: clojure -M:cljs -m cljs.main --target node -m arrow.cljs-runner
 
