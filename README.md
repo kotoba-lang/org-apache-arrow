@@ -218,13 +218,13 @@ against its own past misunderstanding rather than against Arrow.
 
 ```
 clojure -M:test                                             # JVM
-nbb --classpath "src:test:$(clojure -Spath)" test/run.cljs  # cljs, interpreted
+nbb --classpath "src:test:$(clojure -Spath)" test/run.cljk  # cljs, interpreted
 clojure -M:cljs -m cljs.main --target node -m arrow.cljs-runner
 clojure -M:lint
 ```
 
 The ClojureScript runs are not a duplicate of the JVM one: the int64 refusal is
-a claim only they can check, and `test/arrow/lake_e2e_test.clj` is JVM-only on
+a claim only they can check, and `test/arrow/lake_e2e_test.cljk` is JVM-only on
 purpose.
 
 `lake_e2e_test` runs the whole chain — catalog → authorization → triple
