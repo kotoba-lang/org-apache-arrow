@@ -1,6 +1,6 @@
 """Check that files THIS REPO wrote are valid Arrow, using the reference reader.
 
-    clojure -M:test -m arrow.emit-for-python /tmp/arrow-out
+    kbb -M:test -m arrow.emit-for-python /tmp/arrow-out
     .venv/bin/python test/fixtures/verify_written.py /tmp/arrow-out
 
 Why this exists as a separate step: "the writer produces valid Arrow" is a

@@ -217,10 +217,10 @@ against its own past misunderstanding rather than against Arrow.
 ## Tests
 
 ```
-clojure -M:test                                             # JVM
-nbb --classpath "src:test:$(clojure -Spath)" test/run.cljk  # cljs, interpreted
-clojure -M:cljs -m cljs.main --target node -m arrow.cljs-runner
-clojure -M:lint
+kbb -M:test                                             # JVM
+kbb --backend sci --classpath "src:test:$(kbb -Spath)" test/run.cljk  # cljs, interpreted
+kbb -M:cljs -m cljs.main --target node -m arrow.cljs-runner
+kbb -M:lint
 ```
 
 The ClojureScript runs are not a duplicate of the JVM one: the int64 refusal is
