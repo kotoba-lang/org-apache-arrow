@@ -34,7 +34,8 @@
   Scope: exactly what Arrow's metadata uses — tables, scalars, strings,
   vectors of offsets, vectors of inline structs, and unions (which are just a
   type byte plus an offset). No nested vectors of vectors, no shared strings."
-  (:refer-clojure :exclude [bytes]))
+  (:refer-clojure :exclude [bytes])
+  (:require [kotoba.bytes :as kbytes]))
 
 (defn builder []
   (atom {:bytes []          ; reversed: index 0 is the LAST byte of the result
@@ -126,7 +127,7 @@
 (defn create-string!
   "A UTF-8 string, null-terminated as the format requires."
   [b s]
-  (let [bs #?(:clj (mapv #(bit-and % 0xff) (.getBytes ^String s "UTF-8"))
+  (let [bs #?(:clj (mapv #(bit-and % 0xff) (kbytes/utf8-bytes ^String s))
               :cljs (vec (js/Array.from (.encode (js/TextEncoder.) s))))]
     (prep! b 4 (inc (count bs)))
     (place! b 0 1)
