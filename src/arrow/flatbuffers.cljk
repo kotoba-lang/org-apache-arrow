@@ -31,7 +31,8 @@
   is **absent**, and absent means the schema's default rather than the value
   0. `field-offset` returns nil for both cases so a caller has to decide;
   every reader here that has a default states it at the call site."
-  (:refer-clojure :exclude [bytes]))
+  (:refer-clojure :exclude [bytes])
+  (:require [kotoba.bytes :as kbytes]))
 
 ;; ── little-endian scalars ───────────────────────────────────────────────────
 
@@ -179,7 +180,7 @@
         raw (subvec (vec bs) start (+ start n))]
     (if (every? #(< % 0x80) raw)
       (apply str (map char raw))
-      #?(:clj (String. (byte-array (map unchecked-byte raw)) "UTF-8")
+      #?(:clj (kbytes/utf8-string (byte-array (map unchecked-byte raw)))
          :cljs (.decode (js/TextDecoder. "utf-8")
                         (js/Uint8Array. (clj->js raw)))))))
 

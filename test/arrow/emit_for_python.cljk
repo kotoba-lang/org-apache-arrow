@@ -11,7 +11,7 @@
 
   So CI writes with this, reads with pyarrow, and compares values."
   (:require [arrow.write :as w]
-            [clojure.java.io :as io]
+            [kotoba.io :as io]
             [columnar.vector :as cvec]))
 
 (defn- spit-bytes [path bs]

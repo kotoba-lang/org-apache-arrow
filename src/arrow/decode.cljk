@@ -22,7 +22,7 @@
   buffer is fetched. Both are properties of the buffers and neither touches
   the metadata, so a file this namespace refuses still answers `count`,
   `count-non-null` and all-null pruning out of `arrow.ipc/batch-header`."
-  (:require [arrow.flatbuffers :as fb]
+  (:require [kotoba.bytes :as kbytes] [arrow.flatbuffers :as fb]
             [columnar.vector :as cvec]
             [zstd.core :as zstd]))
 
@@ -100,7 +100,7 @@
 (defn- bytes->string [raw]
   (if (every? #(< % 0x80) raw)
     (apply str (map char raw))
-    #?(:clj (String. (byte-array (map unchecked-byte raw)) "UTF-8")
+    #?(:clj (kbytes/utf8-string (byte-array (map unchecked-byte raw)))
        :cljs (.decode (js/TextDecoder. "utf-8") (js/Uint8Array. (clj->js raw))))))
 
 (defn- bit-values [bs n]

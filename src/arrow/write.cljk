@@ -33,7 +33,7 @@
   encoding and no body compression: both are refused on the read side, and a
   writer that emitted what its own reader rejects would be a strange thing to
   own."
-  (:require [arrow.build :as bld]
+  (:require [kotoba.bytes :as kbytes] [arrow.build :as bld]
             [columnar.vector :as cvec]))
 
 (def ^:private metadata-version 4)          ; V5
@@ -141,7 +141,7 @@
              (vec (js/Array.from (js/Uint8Array. buf))))))
 
 (defn- utf8-bytes [s]
-  #?(:clj (mapv #(bit-and % 0xff) (.getBytes ^String s "UTF-8"))
+  #?(:clj (mapv #(bit-and % 0xff) (kbytes/utf8-bytes ^String s))
      :cljs (vec (js/Array.from (.encode (js/TextEncoder.) s)))))
 
 (defn- column-buffers
